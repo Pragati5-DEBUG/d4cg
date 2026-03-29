@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Density Heatmap</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+    h1 { margin-bottom: 8px; }
+    .sub { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .error { color: #f66; margin: 10px 0; }
+    .loading { color: #8af; }
+    #heatmap-wrap { overflow-x: auto; margin: 20px 0; }
+    .heatmap { border-collapse: collapse; font-size: 12px; }
+    .heatmap th, .heatmap td { border: 1px solid #333; padding: 6px 10px; text-align: center; min-width: 36px; }
+    .heatmap th { background: #16213e; color: #aac; }
+    .heatmap th.row-label { text-align: left; }
+    .heatmap td.cell { cursor: pointer; }
+    .heatmap td.cell:hover { outline: 2px solid #0af; outline-offset: -2px; z-index: 1; }
+    .search-row { margin: 12px 0 8px; display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .search-row label { font-size: 13px; color: #aac; }
+    .search-row input[type="search"] {
+      padding: 8px 12px; border-radius: 6px; border: 1px solid #444; background: #16213e; color: #eee; min-width: 240px; max-width: 100%;
+    }
+    .heatmap tbody tr.row-search-highlight th,
+    .heatmap tbody tr.row-search-highlight td {
+      outline: 2px solid #0af; outline-offset: -2px; position: relative; z-index: 2;
+    }
+    .heatmap tbody tr.row-search-dim th,
+    .heatmap tbody tr.row-search-dim td { opacity: 0.38; }
+    .legend { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .legend span { font-size: 12px; color: #888; }
+    .legend .bar { display: flex; height: 20px; border-radius: 4px; overflow: hidden; }
+    .legend .bar div { flex: 1; min-width: 20px; }
+    .cell-hover-status {
+      display: none;
+      margin: 0 0 12px 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.45;
+      color: #0f172a;
+      background: #f8fafc;
+      border: 2px solid #0f172a;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.15);
+    }
+    .cell-hover-status.is-visible { display: block; }
+    .tooltip {
+      position: fixed;
+      background: #0a0e1a;
+      color: #f8fafc;
+      border: 1px solid #38bdf8;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+      white-space: pre-line;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 280px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.25);
+    }
+  </style>
+</head>
+<body>
+  <h1>Data Density Heatmap</h1>
+  <p class="sub" id="subtitle">Loading… <a href="clustergrammer.html" style="color:#6af;">Open Clustergrammer view</a> · <a href="vega.html" style="color:#6af;">Open Vega-Lite view</a></p>
+  <div id="status" class="loading">Loading…</div>
+  <div id="search-panel" class="search-row">
+    <label for="row-search">Find row</label>
+    <input type="search" id="row-search" placeholder="Type to highlight matching rows…" autocomplete="off" spellcheck="false" />
+  </div>
+  <div id="cell-hover-status" class="cell-hover-status" role="status" aria-live="polite" hidden></div>
+  <div id="heatmap-wrap" style="display: none;"></div>
+  <div class="legend" id="legend" style="display: none;"></div>
+  <div id="tooltip" class="tooltip" style="display: none;"></div>
+
+  <script>
+    const API = window.location.origin;
+    const tooltip = document.getElementById('tooltip');
+
+    function showTooltip(text, x, y) {
+      tooltip.textContent = text;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (x + 12) + 'px';
+      tooltip.style.top = (y + 12) + 'px';
+    }
+    function hideTooltip() {
+      tooltip.style.display = 'none';
+    }
+
+    function colorFor(intensity) {
+      if (intensity === 0) return '#2a2a4a';
+      const r = Math.round(50 + intensity * 205);
+      const g = Math.round(100 + intensity * 80);
+      const b = Math.round(200);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function colorForZ(t, maxAbs) {
+      if (maxAbs < 1e-12) return '#2a2a4a';
+      const u = Math.max(-1, Math.min(1, t / maxAbs));
+      if (u <= 0) {
+        const s = 1 + u;
+        const r = Math.round(33 + (247 - 33) * s);
+        const g = Math.round(102 + (247 - 102) * s);
+        const b = Math.round(172 + (247 - 172) * s);
+        return `rgb(${r},${g},${b})`;
+      }
+      const s = u;
+      const r = Math.round(247 + (178 - 247) * s);
+      const g = Math.round(247 + (24 - 247) * s);
+      const b = Math.round(247 + (24 - 247) * s);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function applyRowSearch(rowLabels, wrapEl, query) {
+      const q = (query || '').trim().toLowerCase();
+      wrapEl.querySelectorAll('tbody tr').forEach(tr => {
+        const idx = parseInt(tr.dataset.rowIdx, 10);
+        const label = String(rowLabels[idx] ?? '');
+        const match = !q || label.toLowerCase().includes(q);
+        tr.classList.toggle('row-search-highlight', q.length > 0 && match);
+        tr.classList.toggle('row-search-dim', q.length > 0 && !match);
+      });
+    }
+
+    async function run() {
+      const statusEl = document.getElementById('status');
+      const wrap = document.getElementById('heatmap-wrap');
+      const legendEl = document.getElementById('legend');
+        const searchPanel = document.getElementById('search-panel');
+      const searchInput = document.getElementById('row-search');
+      const cellHoverStatus = document.getElementById('cell-hover-status');
+
+      try {
+        const res = await fetch(API + '/api/heatmap/data');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || res.statusText || 'Request failed');
+        if (!Array.isArray(data.cells) || !Array.isArray(data.rowLabels) || !Array.isArray(data.colLabels)) {
+          throw new Error(data.error || 'Invalid response: missing cells, rowLabels, or colLabels');
+        }
+
+        const { rowLabels, colLabels, cells, row_label, col_label, value_scale } = data;
+        const maxVal = Math.max(...cells.map(c => c.value), 1);
+        const useZ = value_scale === 'zscore';
+        const maxAbsZ = useZ ? Math.max(...cells.map(c => Math.abs(c.z || 0)), 1e-9) : 1;
+        const rowLabel = row_label || 'Row';
+        const colLabel = col_label || 'Column';
+
+        let table = '<table class="heatmap"><thead><tr><th class="row-label">' + rowLabel + '</th>';
+        colLabels.forEach(col => { table += '<th>' + col + '</th>'; });
+        table += '</tr></thead><tbody>';
+
+        rowLabels.forEach((row, rowIdx) => {
+          table += '<tr data-row-idx="' + rowIdx + '"><th class="row-label" title="' + rowLabel + '">' + row + '</th>';
+          colLabels.forEach((col, colIdx) => {
+            const cell = cells.find(c => c.row === row && c.col === col);
+            const value = cell ? cell.value : 0;
+            const z = cell && typeof cell.z === 'number' ? cell.z : 0;
+            const color = useZ ? colorForZ(z, maxAbsZ) : colorFor(cell ? cell.intensity : 0);
+            table += '<td class="cell" style="background:' + color + '" data-row-idx="' + rowIdx + '" data-col-idx="' + colIdx + '" data-value="' + value + '" data-z="' + z + '" data-row="' + row + '" data-col="' + col + '">' + (value || '') + '</td>';
+          });
+          table += '</tr>';
+        });
+        table += '</tbody></table>';
+        wrap.innerHTML = table;
+        wrap.style.display = 'block';
+        searchPanel.style.display = 'flex';
+        searchInput.value = '';
+        searchInput.oninput = function () {
+          applyRowSearch(rowLabels, wrap, searchInput.value);
+        };
+        statusEl.textContent = '';
+        statusEl.classList.remove('loading');
+        document.getElementById('subtitle').innerHTML = rowLabel + ' × ' + colLabel + ' — ' + (useZ ? 'color = z-score of counts (blue low, red high vs matrix mean)' : 'cell color = count (from GraphQL)') + '. <a href="clustergrammer.html" style="color:#6af;">Open Clustergrammer view</a> · <a href="vega.html" style="color:#6af;">Open Vega-Lite view</a>';
+
+        const steps = 6;
+        let barHtml = '';
+        if (useZ) {
+          for (let i = 0; i <= steps; i++) {
+            const t = -1 + (2 * i) / steps;
+            barHtml += '<div style="background:' + colorForZ(t * maxAbsZ, maxAbsZ) + '"></div>';
+          }
+          legendEl.innerHTML = '<span>z-score →</span><div class="bar">' + barHtml + '</div><span>low</span><span>high</span>';
+        } else {
+          for (let i = 0; i <= steps; i++) {
+            const v = i / steps;
+            barHtml += '<div style="background:' + colorFor(v) + '"></div>';
+          }
+          legendEl.innerHTML = '<span>Count →</span><div class="bar">' + barHtml + '</div><span>0</span><span>' + maxVal + '</span>';
+        }
+        legendEl.style.display = 'flex';
+
+        wrap.querySelectorAll('.cell').forEach(td => {
+          td.addEventListener('mouseenter', e => {
+            const v = td.dataset.value;
+            const row = td.dataset.row;
+            const col = td.dataset.col;
+            const ri = td.dataset.rowIdx;
+            const ci = td.dataset.colIdx;
+            const zv = td.dataset.z;
+            const zLine = useZ && zv !== undefined && zv !== '' ? '\nz-score: ' + zv : '';
+            showTooltip(row + ' · ' + col + '\nCount: ' + v + zLine, e.clientX, e.clientY);
+            if (cellHoverStatus) {
+              cellHoverStatus.textContent =
+                'Cell: ' + ri + ', ' + ci + ' — ' + row + ' × ' + col + ' — count: ' + v + (useZ && zv !== '' ? ' (z: ' + zv + ')' : '');
+              cellHoverStatus.classList.add('is-visible');
+              cellHoverStatus.hidden = false;
+            }
+          });
+          td.addEventListener('mousemove', e => {
+            tooltip.style.left = (e.clientX + 12) + 'px';
+            tooltip.style.top = (e.clientY + 12) + 'px';
+          });
+          td.addEventListener('mouseleave', () => {
+            hideTooltip();
+            if (cellHoverStatus) {
+              cellHoverStatus.classList.remove('is-visible');
+              cellHoverStatus.hidden = true;
+            }
+          });
+        });
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.classList.add('error');
+        searchPanel.style.display = 'none';
+        wrap.style.display = 'none';
+        const ch = document.getElementById('cell-hover-status');
+        if (ch) {
+          ch.classList.remove('is-visible');
+          ch.hidden = true;
+        }
+      }
+    }
+
+    let lastConfigVersion = null;
+    run().then(() => {
+      setInterval(async () => {
+        try {
+          const r = await fetch(API + '/api/heatmap/config/version', { cache: 'no-store' });
+          const j = await r.json();
+          if (j.version != null && j.version !== lastConfigVersion) {
+            lastConfigVersion = j.version;
+            if (document.getElementById('heatmap-wrap').innerHTML) await run();
+          } else if (lastConfigVersion == null) lastConfigVersion = j.version;
+        } catch (_) {}
+      }, 2000);
+    });
+  </script>
+</body>
+</html>

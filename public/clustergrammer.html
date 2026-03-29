@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Density Heatmap — Clustergrammer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; background: #111; color: #eee; }
+    h1 { margin-bottom: 4px; }
+    .sub { color: #888; font-size: 14px; margin-bottom: 12px; }
+    .error { color: #f66; }
+    .loading { color: #8af; }
+    #heatmap-wrap { width: 100%; height: 80vh; min-height: 500px; margin: 16px 0; position: relative; }
+    #heatmap-wrap svg { touch-action: none; }
+    a { color: #6af; }
+    .d3-tip,
+    .d3-tip-custom,
+    div[class*="d3-tip"] {
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      border: 2px solid #0f172a !important;
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.2) !important;
+    }
+    #heatmap-wrap .sidebar_tooltip .sidebar_tooltip_text {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Data Density Heatmap (Clustergrammer)</h1>
+  <p class="sub" id="subtitle">Loading… <a href="index.html">Simple table view</a> · <a href="vega.html">Vega-Lite view</a></p>
+  <div id="status" class="loading">Loading…</div>
+  <div id="heatmap-wrap" style="display: none;"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@1.11.3/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/underscore@1.8.3/underscore-min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@3.5.17/d3.min.js"></script>
+  <script src="https://unpkg.com/clustergrammer@1.18.0/clustergrammer.min.js"></script>
+  <script>
+    var API = window.location.origin;
+
+    function toClustergrammerData(rowLabels, colLabels, cells, valueScale) {
+      var row_nodes = rowLabels.map(function(name, i) {
+        return { name: name, clust: i, rank: i, group: [] };
+      });
+      var col_nodes = colLabels.map(function(name, i) {
+        return { name: name, clust: i, rank: i, group: [] };
+      });
+      var useZ = valueScale === 'zscore';
+      var mat = rowLabels.map(function(rowName) {
+        return colLabels.map(function(colName) {
+          var c = cells.find(function(x) { return x.row === rowName && x.col === colName; });
+          if (!c) return 0;
+          return useZ && typeof c.z === 'number' ? c.z : c.value;
+        });
+      });
+      return { row_nodes: row_nodes, col_nodes: col_nodes, mat: mat };
+    }
+
+    function run() {
+      var statusEl = document.getElementById('status');
+      var wrap = document.getElementById('heatmap-wrap');
+
+      fetch(API + '/api/heatmap/data?_=' + Date.now(), { cache: 'no-store' })
+        .then(function(res) { return res.json().then(function(data) { return { res: res, data: data }; }); })
+        .then(function(_) {
+          var res = _.res, data = _.data;
+          if (!res.ok) throw new Error(data.error || res.statusText || 'Request failed');
+          if (!data.cells) throw new Error(data.error || 'Invalid response');
+
+          var network_data = toClustergrammerData(data.rowLabels, data.colLabels, data.cells, data.value_scale || 'counts');
+          statusEl.textContent = '';
+          wrap.innerHTML = '';
+          wrap.style.display = 'block';
+          var rowLabel = data.row_label || 'Row';
+          var colLabel = data.col_label || 'Column';
+
+          var isZ = (data.value_scale || 'counts') === 'zscore';
+          var args = {
+            root: '#heatmap-wrap',
+            network_data: network_data,
+            row_label: data.row_label || 'Row',
+            col_label: data.col_label || 'Column',
+            tile_colors: isZ
+              ? ['#2166ac', '#f7f7f7', '#b2182b']
+              : ['#0d0887', '#6a00a8', '#b12a90', '#e16462', '#fca636', '#f0f921'],
+            do_zoom: true,
+            row_label_scale: 1.05,
+            col_label_scale: 1.05
+          };
+          var cgm = Clustergrammer(args);
+
+          if (!wrap.dataset.zoomWheelFix) {
+            wrap.dataset.zoomWheelFix = '1';
+            wrap.addEventListener(
+              'wheel',
+              function (e) {
+                if (e.target && e.target.closest && e.target.closest('#heatmap-wrap svg')) {
+                  e.preventDefault();
+                }
+              },
+              { passive: false }
+            );
+          }
+
+          var hint =
+            'Tip: move the pointer over the colored matrix (not the sidebar), then <strong>scroll</strong> to zoom and <strong>drag</strong> to pan. Small grids (few rows/columns) have little room to zoom.';
+          document.getElementById('subtitle').innerHTML =
+            rowLabel +
+            ' × ' +
+            colLabel +
+            ' — ' +
+            hint +
+            ' <a href="index.html">Table view</a> · <a href="vega.html">Vega-Lite</a>';
+        })
+        .catch(function(err) {
+          statusEl.textContent = 'Error: ' + err.message;
+          statusEl.className = 'error';
+        });
+    }
+
+    run();
+    var lastConfigVersion = null;
+    setInterval(function() {
+      fetch(API + '/api/heatmap/config/version', { cache: 'no-store' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+          if (j.version != null && j.version !== lastConfigVersion) {
+            lastConfigVersion = j.version;
+            if (document.getElementById('heatmap-wrap').innerHTML) run();
+          } else if (lastConfigVersion == null) lastConfigVersion = j.version;
+        })
+        .catch(function() {});
+    }, 2000);
+  </script>
+</body>
+</html>

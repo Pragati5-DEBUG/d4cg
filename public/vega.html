@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Density Heatmap — Vega-Lite</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 16px;
+        background: #111;
+        color: #eee;
+      }
+      h1 {
+        margin-bottom: 4px;
+      }
+      .sub {
+        color: #888;
+        font-size: 14px;
+        margin-bottom: 12px;
+      }
+      .error {
+        color: #f66;
+      }
+      .loading {
+        color: #8af;
+      }
+      a {
+        color: #6af;
+      }
+      #vis {
+        width: 100%;
+        min-height: 70vh;
+      }
+      .panel {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .pill {
+        border: 1px solid #333;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 12px;
+        color: #aaa;
+      }
+      #vg-tooltip-element,
+      #vg-tooltip-element * {
+        color: #0f172a !important;
+      }
+      #vg-tooltip-element {
+        background: #f8fafc !important;
+        border: 2px solid #0f172a !important;
+        border-radius: 8px !important;
+        padding: 10px 12px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.2) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Data Density Heatmap (Vega-Lite)</h1>
+    <p class="sub" id="subtitle">
+      Loading… <a href="index.html">Simple table view</a> ·
+      <a href="clustergrammer.html">Clustergrammer view</a>
+    </p>
+    <div class="panel">
+      <div id="status" class="loading">Loading…</div>
+      <div id="meta" class="pill" style="display: none"></div>
+    </div>
+    <div id="vis"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <script>
+      const API = window.location.origin
+
+      function toTidy(rows, cols, cells, useZ) {
+        const lookup = new Map()
+        for (const c of cells) lookup.set(c.row + '\u0000' + c.col, c)
+        const out = []
+        for (const r of rows) {
+          for (const c of cols) {
+            const cell = lookup.get(r + '\u0000' + c)
+            const value = cell ? cell.value : 0
+            const z = cell && typeof cell.z === 'number' ? cell.z : 0
+            out.push({
+              row: r,
+              col: c,
+              value,
+              z,
+              viz: useZ ? z : value,
+              intensity: cell ? cell.intensity : 0,
+            })
+          }
+        }
+        return out
+      }
+
+      async function run() {
+        const statusEl = document.getElementById('status')
+        const metaEl = document.getElementById('meta')
+        try {
+          statusEl.className = 'loading'
+          statusEl.textContent = 'Loading…'
+
+          const res = await fetch(API + '/api/heatmap/data?_=' + Date.now(), {
+            cache: 'no-store',
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(data.error || res.statusText || 'Request failed')
+          if (
+            !Array.isArray(data.cells) ||
+            !Array.isArray(data.rowLabels) ||
+            !Array.isArray(data.colLabels)
+          ) {
+            throw new Error(data.error || 'Invalid response: missing cells/labels')
+          }
+
+          const rowLabel = data.row_label || 'Row'
+          const colLabel = data.col_label || 'Column'
+          const useZ = data.value_scale === 'zscore'
+          const tidy = toTidy(data.rowLabels, data.colLabels, data.cells, useZ)
+          const maxVal = tidy.reduce((m, d) => (d.value > m ? d.value : m), 0) || 1
+          const maxAbsZ = useZ ? Math.max(...tidy.map((d) => Math.abs(d.z)), 1e-9) : 1
+
+          document.getElementById('subtitle').innerHTML =
+            rowLabel +
+            ' × ' +
+            colLabel +
+            ' — declarative Vega-Lite spec. <a href="index.html">Simple table view</a> · <a href="clustergrammer.html">Clustergrammer view</a>'
+
+          metaEl.style.display = 'inline-block'
+          metaEl.textContent =
+            'rows: ' +
+            data.rowLabels.length +
+            ' · cols: ' +
+            data.colLabels.length +
+            (useZ ? ' · |z| max: ' + maxAbsZ.toFixed(2) : ' · max count: ' + maxVal)
+
+          const spec = {
+            $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+            width: 'container',
+            height: { step: 18 },
+            data: { values: tidy },
+            mark: { type: 'rect' },
+            encoding: {
+              x: {
+                field: 'col',
+                type: 'nominal',
+                axis: { title: colLabel, labelAngle: -40, labelLimit: 120 },
+                sort: null,
+              },
+              y: {
+                field: 'row',
+                type: 'nominal',
+                axis: { title: rowLabel, labelLimit: 160 },
+                sort: null,
+              },
+              color: {
+                field: 'viz',
+                type: 'quantitative',
+                title: useZ ? 'z-score' : 'Count',
+                scale: useZ
+                  ? { scheme: 'redblue', domain: [-maxAbsZ, maxAbsZ] }
+                  : { scheme: 'blues', domain: [0, maxVal] },
+              },
+              tooltip: useZ
+                ? [
+                    { field: 'row', type: 'nominal', title: rowLabel },
+                    { field: 'col', type: 'nominal', title: colLabel },
+                    { field: 'value', type: 'quantitative', title: 'Count' },
+                    { field: 'z', type: 'quantitative', title: 'z-score' },
+                  ]
+                : [
+                    { field: 'row', type: 'nominal', title: rowLabel },
+                    { field: 'col', type: 'nominal', title: colLabel },
+                    { field: 'value', type: 'quantitative', title: 'Count' },
+                  ],
+            },
+            config: {
+              background: '#111',
+              axis: {
+                labelColor: '#ddd',
+                titleColor: '#ddd',
+                gridColor: '#222',
+                domainColor: '#444',
+                tickColor: '#444',
+              },
+              legend: { labelColor: '#ddd', titleColor: '#ddd' },
+              view: { stroke: '#222' },
+            },
+          }
+
+          await vegaEmbed('#vis', spec, {
+            actions: { export: true, source: false, compiled: false, editor: false },
+            renderer: 'canvas',
+            theme: 'dark',
+          })
+
+          statusEl.textContent = ''
+          statusEl.className = ''
+        } catch (err) {
+          statusEl.textContent = 'Error: ' + err.message
+          statusEl.className = 'error'
+        }
+      }
+
+      let lastConfigVersion = null
+      run().then(() => {
+        setInterval(async () => {
+          try {
+            const r = await fetch(API + '/api/heatmap/config/version', {
+              cache: 'no-store',
+            })
+            const j = await r.json()
+            if (j.version != null && j.version !== lastConfigVersion) {
+              lastConfigVersion = j.version
+              await run()
+            } else if (lastConfigVersion == null) lastConfigVersion = j.version
+          } catch (_) {}
+        }, 2000)
+      })
+    </script>
+  </body>
+</html>
+

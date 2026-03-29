@@ -1,0 +1,12 @@
+graphql:
+  endpoint: "https://countries.trevorblades.com/graphql"
+
+heatmap:
+  query_type: "countries"
+  row_field: "phone"
+  col_field: "currency"
+  row_label: "Phone code"
+  col_label: "Currency"
+  max_rows: 8
+  max_cols: 5
+  value_scale: zscore
