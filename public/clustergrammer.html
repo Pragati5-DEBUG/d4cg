@@ -30,6 +30,15 @@
     #heatmap-wrap .sidebar_tooltip .sidebar_tooltip_text {
       display: none !important;
     }
+    #heatmap-wrap svg text {
+      fill: #0f172a !important;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif !important;
+      font-weight: 600 !important;
+    }
+    #heatmap-wrap svg .row_label_text,
+    #heatmap-wrap svg .col_label_text {
+      fill: #0f172a !important;
+    }
   </style>
 </head>
 <body>
@@ -92,10 +101,26 @@
               ? ['#2166ac', '#f7f7f7', '#b2182b']
               : ['#0d0887', '#6a00a8', '#b12a90', '#e16462', '#fca636', '#f0f921'],
             do_zoom: true,
-            row_label_scale: 1.05,
-            col_label_scale: 1.05
+            row_label_scale: 1.45,
+            col_label_scale: 1.45,
+            super_label_scale: 1.2
           };
           var cgm = Clustergrammer(args);
+
+          function darkenSvgAxisLabels() {
+            var texts = wrap.querySelectorAll('svg text');
+            for (var i = 0; i < texts.length; i++) {
+              var t = texts[i];
+              var fs = parseFloat(t.getAttribute('font-size')) || 10;
+              t.setAttribute('fill', '#0f172a');
+              t.setAttribute('font-weight', '600');
+              if (fs < 12) {
+                t.setAttribute('font-size', String(Math.max(12, fs * 1.25)));
+              }
+            }
+          }
+          setTimeout(darkenSvgAxisLabels, 400);
+          setTimeout(darkenSvgAxisLabels, 1500);
 
           if (!wrap.dataset.zoomWheelFix) {
             wrap.dataset.zoomWheelFix = '1';
