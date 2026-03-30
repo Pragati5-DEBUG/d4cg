@@ -21,8 +21,6 @@ Repository layout (excluding `node_modules`):
 │   └── vega.html            — Vega-Lite alternative view
 ├── mockdata/
 │   └── adverse_events.json  — Sample records for the mock GraphQL API
-├── docs/
-│   └── clustergrammer-screenshot.png
 ├── CONFIG_TEST.md           — How to verify config-driven behavior (proposal / testing notes)
 └── README.md
 ```
@@ -34,13 +32,6 @@ Repository layout (excluding `node_modules`):
 | `graphql.js` | In-process mock GraphQL for development when you use the bundled demo endpoint. |
 | `public/*.html` | Front-end pages; they call the same heatmap API and differ only in visualization library. |
 | `mockdata/` | JSON feeding the mock schema so you can run without an external API. |
-| `docs/` | Images referenced from this README (e.g. screenshots). |
-
-## Screenshot
-
-Clustergrammer view (example: **Phone code** × **Currency** from a live GraphQL dataset):
-
-![Data Density Heatmap — Clustergrammer](docs/clustergrammer-screenshot.png)
 
 ## What it does
 

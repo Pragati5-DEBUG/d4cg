@@ -434,7 +434,6 @@ app.get('/api/heatmap/data', async (req, res) => {
   }
 });
 
-app.use('/docs', express.static(path.join(__dirname, 'docs')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 setupGraphQL(app).then(() => {
