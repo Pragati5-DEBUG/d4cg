@@ -2,9 +2,9 @@ graphql:
   endpoint: "https://countries.trevorblades.com/graphql"
 
 heatmap:
-  query_type: "countries"
-  row_field: "phone"
-  col_field: "currency"
-  row_label: "Phone code"
-  col_label: "Currency"
+  query_type: "languages"
+  row_field: "name"
+  col_field: "rtl"
+  row_label: "name"
+  col_label: "rtl"
   value_scale: zscore

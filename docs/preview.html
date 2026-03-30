@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagram previews (SVG)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; background: #f1f5f9; color: #0f172a; }
+    h1 { font-size: 1.25rem; }
+    p { color: #475569; font-size: 0.9rem; max-width: 56rem; }
+    section { margin: 2rem 0; background: #fff; padding: 1rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    img { max-width: 100%; height: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+  </style>
+</head>
+<body>
+  <h1>SVG diagram previews</h1>
+  <p>
+    If double-clicking an <code>.svg</code> file does nothing or shows a blank window, Windows may be using an app that does not render SVG (e.g. Photos).
+    <strong>Open this HTML file in Microsoft Edge or Chrome</strong> (right-click → Open with), or start the app and visit
+    <code>http://localhost:5002/docs/preview.html</code>.
+  </p>
+
+  <section>
+    <h2>Challenges (simple)</h2>
+    <img src="challenges-simple.svg" alt="Prototype challenges diagram" width="900" height="520" />
+  </section>
+
+  <section>
+    <h2>Challenges (colorful)</h2>
+    <img src="challenges-diagram-colorful.svg" alt="Challenges colorful diagram" width="900" height="650" />
+  </section>
+
+  <section>
+    <h2>Architecture (colorful)</h2>
+    <img src="block-diagram-colorful.svg" alt="Architecture block diagram" width="900" height="520" />
+  </section>
+
+  <section>
+    <h2>Architecture (minimal)</h2>
+    <img src="block-diagram.svg" alt="Architecture minimal diagram" width="680" height="400" />
+  </section>
+</body>
+</html>

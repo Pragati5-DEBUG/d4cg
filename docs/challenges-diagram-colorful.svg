@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
+  <defs>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .title { font: 700 18px system-ui, Segoe UI, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 12px system-ui, Segoe UI, sans-serif; fill: #475569; }
+      .boxText { font: 700 14px system-ui, Segoe UI, sans-serif; fill: #0f172a; }
+      .smallText { font: 500 12px system-ui, Segoe UI, sans-serif; fill: #0f172a; opacity: 0.9; }
+    </style>
+  </defs>
+
+  <rect width="900" height="650" rx="18" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <text x="450" y="40" text-anchor="middle" class="title">d4cg Prototype Challenges</text>
+  <text x="450" y="62" text-anchor="middle" class="subtitle">Flowchart-style blocks for UI/UX &amp; scalability constraints</text>
+
+  <g filter="url(#sh)">
+    <rect x="90" y="90" width="720" height="64" rx="18" fill="#e0e7ff" stroke="#6366f1" stroke-width="2"/>
+    <text x="450" y="128" text-anchor="middle" class="boxText">UI/UX &amp; Scaling Challenges</text>
+  </g>
+
+  <!-- Boxes -->
+  <g filter="url(#sh)">
+    <rect x="70" y="170" width="360" height="95" rx="18" fill="#c7f9cc" stroke="#34a853" stroke-width="2"/>
+    <text x="250" y="210" text-anchor="middle" class="boxText">Large matrices</text>
+    <text x="250" y="232" text-anchor="middle" class="smallText">slow render + heavy DOM</text>
+
+    <rect x="470" y="170" width="360" height="95" rx="18" fill="#bfdbfe" stroke="#3b82f6" stroke-width="2"/>
+    <text x="650" y="210" text-anchor="middle" class="boxText">Label readability</text>
+    <text x="650" y="232" text-anchor="middle" class="smallText">axis overlap, unreadable ticks</text>
+
+    <rect x="70" y="285" width="360" height="95" rx="18" fill="#fde68a" stroke="#f59e0b" stroke-width="2"/>
+    <text x="250" y="325" text-anchor="middle" class="boxText">Sparse vs zero</text>
+    <text x="250" y="347" text-anchor="middle" class="smallText">missing vs true 0 ambiguity</text>
+
+    <rect x="470" y="285" width="360" height="95" rx="18" fill="#fbcfe8" stroke="#ec4899" stroke-width="2"/>
+    <text x="650" y="325" text-anchor="middle" class="boxText">Value scale</text>
+    <text x="650" y="347" text-anchor="middle" class="smallText">counts vs z-score meaning</text>
+
+    <rect x="70" y="400" width="360" height="95" rx="18" fill="#fecaca" stroke="#ef4444" stroke-width="2"/>
+    <text x="250" y="440" text-anchor="middle" class="boxText">Interaction consistency</text>
+    <text x="250" y="462" text-anchor="middle" class="smallText">search/selection differ across views</text>
+
+    <rect x="470" y="400" width="360" height="95" rx="18" fill="#bae6fd" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="650" y="440" text-anchor="middle" class="boxText">Cross-view selection</text>
+    <text x="650" y="462" text-anchor="middle" class="smallText">keep state across views</text>
+  </g>
+
+  <!-- Bottom box -->
+  <g filter="url(#sh)">
+    <rect x="220" y="525" width="460" height="90" rx="18" fill="#ddd6fe" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="450" y="565" text-anchor="middle" class="boxText">GraphQL / Config failures</text>
+    <text x="450" y="587" text-anchor="middle" class="smallText">clear errors for wrong fields/endpoints</text>
+  </g>
+
+  <!-- Light connectors (no arrows to keep it clean) -->
+  <g stroke="#94a3b8" stroke-width="2" opacity="0.5">
+    <path d="M450 154 C450 154 450 170 430 170" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 154 C450 154 450 170 470 170" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 170 C450 170 230 170 230 285" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 170 C450 170 650 170 650 285" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 210 C450 210 250 210 250 400" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 210 C450 210 650 210 650 400" fill="none" stroke-dasharray="6 6"/>
+    <path d="M450 154 C450 154 450 525 450 525" fill="none" stroke-dasharray="6 6"/>
+  </g>
+</svg>
+

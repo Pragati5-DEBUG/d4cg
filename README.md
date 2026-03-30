@@ -5,6 +5,43 @@ A **web-based heatmap** that shows **data density** (completeness and distributi
 - Backend reads endpoint, query type, and row/column dimensions from **`config.yaml`** (and optional env). Supports query arguments (e.g. Open Targets `efoId`).
 - Frontend: table heatmap + **Clustergrammer** (D3-based) for interactive visualization.
 
+## File structure
+
+Repository layout (excluding `node_modules`):
+
+```text
+.
+├── config.yaml              — GraphQL URL, query type, row/column field paths, labels, optional value_scale
+├── server.js                — Express app: load config, fetch GraphQL, aggregate counts, API routes, static files
+├── graphql.js               — Apollo Server mock schema + resolvers (local demo GraphQL on /graphql)
+├── package.json             — Dependencies and npm scripts (start / dev)
+├── public/
+│   ├── index.html           — Main table heatmap UI
+│   ├── clustergrammer.html  — Clustergrammer (D3) interactive heatmap
+│   └── vega.html            — Vega-Lite alternative view
+├── mockdata/
+│   └── adverse_events.json  — Sample records for the mock GraphQL API
+├── docs/
+│   └── clustergrammer-screenshot.png
+├── CONFIG_TEST.md           — How to verify config-driven behavior (proposal / testing notes)
+└── README.md
+```
+
+| Path | Role |
+|------|------|
+| `config.yaml` | Single place to point at an API and choose which two fields define the heatmap axes. |
+| `server.js` | HTTP server, heatmap JSON (`/api/heatmap/data`), health, optional field/query discovery, serves `public/`. |
+| `graphql.js` | In-process mock GraphQL for development when you use the bundled demo endpoint. |
+| `public/*.html` | Front-end pages; they call the same heatmap API and differ only in visualization library. |
+| `mockdata/` | JSON feeding the mock schema so you can run without an external API. |
+| `docs/` | Images referenced from this README (e.g. screenshots). |
+
+## Screenshot
+
+Clustergrammer view (example: **Phone code** × **Currency** from a live GraphQL dataset):
+
+![Data Density Heatmap — Clustergrammer](docs/clustergrammer-screenshot.png)
+
 ## What it does
 
 - **Backend (Express):** Loads config from `config.yaml`, calls the configured GraphQL API, and returns heatmap data (rows × columns = counts). Supports optional auth and env overrides.
